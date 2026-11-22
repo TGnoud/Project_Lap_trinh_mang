@@ -1,5 +1,13 @@
 # AGENTS.md
 
+## Theo dõi trạng thái task
+
+- Với mỗi task, trước khi bắt đầu triển khai, thêm một dòng `IN_PROGRESS` vào [PROGRESS.md](PROGRESS.md) với mã task và phạm vi dự kiến. Sau khi triển khai và kiểm tra, thêm dòng mới cùng mã với trạng thái `DONE`, hoặc `BLOCKED` nếu còn trở ngại. Ghi kết quả thực tế, kiểm tra đã chạy hoặc lý do chưa chạy, và việc còn lại nếu có. Giữ cả dòng trước và sau để theo dõi lịch sử.
+
+## Tài liệu phản biện
+
+- Trước khi đánh dấu `DONE`, tạo hoặc cập nhật `docs/phan-bien/<mã-task>.md`, dùng dấu `-` thay cho `/` trong tên tệp, như [D01-W1.md](docs/phan-bien/D01-W1.md). Dẫn link trong dòng kết quả của `PROGRESS.md`. Viết bằng tiếng Việt để người làm đồ án có thể tự trình bày mục đích, tệp cần đọc, luồng mã, lý do các quyết định chính, cách demo và kết quả kiểm tra thực tế. Thêm câu hỏi phản biện sát với mã và ghi rõ giới hạn của phần đã làm. Với task chỉ sửa tài liệu, giải thích phần thay đổi và cách kiểm tương ứng.
+
 ## Phạm vi
 
 - Đọc `PLAN.md` và ma trận R01–R15 trước khi sửa ứng dụng. Làm theo milestone được yêu cầu.
@@ -16,5 +24,5 @@
 
 ## Kiểm chứng
 
-- Viết unit test cho module production thay đổi. Dùng TCP thật và DB tạm để kiểm giao thức, quyền, restart và push. Gate line coverage toàn ứng dụng >=91%, mục tiêu branch >=85%.
+- Viết unit test cho module production thay đổi. Dùng TCP thật và DB tạm để kiểm giao thức, quyền, restart và push. Chạy CTest và xác minh line coverage toàn ứng dụng **>90%** bằng gcovr và script kiểm báo cáo trên Linux/WSL. Có một bài đo tải TCP tái lập được với nhiều mức kết nối đồng thời.
 - Báo lệnh, kết quả thực tế và giới hạn đã xác minh. Ghi rõ test, coverage hoặc benchmark chưa chạy. Giữ binary, DB thử nghiệm và dữ liệu đo thô ngoài Git.

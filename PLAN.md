@@ -1,10 +1,10 @@
 # IT4062 — Kế hoạch ứng dụng quản lý danh mục địa điểm
 
-Cập nhật ngày 22/11/2026. Kế hoạch 4 tuần dành cho CLI client và server. Các module, lệnh chạy, test ID, ngưỡng hiệu năng và commit dưới đây là **dự kiến**. Mã đồ án, test, coverage và benchmark chưa có kết quả thực tế.
+Cập nhật ngày 23/11/2026. Kế hoạch 4 tuần dành cho CLI client và server. Điều kiện nghiệm thu gồm **đủ chức năng**, **đủ unit test với line coverage >90%** và **một bài đo tải TCP chạy được**. Build, test và đo tải thực hiện trên Linux/WSL.
 
 ## 1. Phạm vi và tài liệu đã đọc
 
-Repo hiện có commit `3a8699e`, tài liệu môn học và code mẫu C. Đã đọc **71 tệp .c/.h** trong `1-Chap1` đến `4-Chap4` (24/11/25/11 tệp), kể cả các ví dụ trong `temp/`, cùng hai Makefile bài lab. `src/` trống. Mã sản phẩm, migration, test và CI còn phải tạo. Việc đọc chỉ là rà soát tĩnh. Lệnh liệt kê WSL trả lỗi quyền truy cập, nên môi trường Linux cục bộ chưa được xác minh.
+Repo có tài liệu môn học và code mẫu C. Đã đọc **71 tệp .c/.h** trong `1-Chap1` đến `4-Chap4` (24/11/25/11 tệp), kể cả ví dụ trong `temp/`, cùng hai Makefile bài lab. D01 đã có nền CMake, kiểm tra tham số và test chạy trên Ubuntu WSL2. [PROGRESS.md](PROGRESS.md) ghi kết quả D01. Socket, chức năng nghiệp vụ, migration và bài đo tải còn phải triển khai.
 
 | Kiến thức | Giáo trình, theo số trang in | Code mẫu và ứng dụng |
 |---|---|---|
@@ -175,7 +175,7 @@ Tất cả test ID trong bảng là test **cần viết**.
 - **Contract.** `CT-01` đọc chéo golden frame bằng C++ và Python codec độc lập. `CT-02` kiểm C01–C21 với payload đúng/sai, quyền, request ID, mã lỗi và không có side effect khi lỗi. `CT-03` kiểm event, ACK và giới hạn page.
 - **E2E.** `E2E-01` chạy CLI thật qua đăng ký → CRUD → kết bạn → Bob offline được tag → login nhận push → ACK → chọn lưu SHARED. `E2E-02` chạy hai phiên cùng owner với conflict, expiry và restart.
 
-Dùng GoogleTest, CTest và Python cho TCP/CLI. Đăng ký cả unit, integration, contract và E2E vào CTest. Test Python nhận đường dẫn `place_server` và `place_cli` từ đúng CMake build đang chạy. Line gate CI **>=91%** đáp ứng **strict >90%**. Mục tiêu branch **>=85%**. Instrument toàn bộ mã production, gồm cả main, worker, CLI và nhánh lỗi. Chỉ lọc test và thư viện ngoài. Đối chiếu danh sách nguồn với report để file ít hoặc chưa chạy vẫn có trong mẫu số. Dùng build sạch mỗi lượt và dừng subprocess sạch để flush counter. Báo chính xác dòng/nhánh đã chạy trên tổng số.
+Dùng GoogleTest cho unit test và CTest để chạy toàn bộ bộ kiểm thử. Các ca contract và E2E có thể dùng chung bộ chạy Python với integration TCP để tránh dựng thêm hạ tầng. Test Python nhận binary từ đúng CMake build đang chạy. Đo line coverage của toàn bộ mã trong `src/`, gồm cả main, worker và CLI. Script kiểm báo cáo yêu cầu mọi tệp triển khai đều có số liệu và tỷ lệ dòng thực thi **lớn hơn 90%**. Branch coverage dùng để tham khảo. Dùng build sạch mỗi lượt và dừng subprocess sạch để flush counter.
 
 Lệnh dự kiến chạy trong Linux sau khi có code và test. CTest label `w1`–`w4` ghi tuần bắt đầu có test. Đặt `RUN_ID` mới cho mỗi lần đo.
 
@@ -186,31 +186,31 @@ ctest --test-dir build/debug --output-on-failure
 
 cmake -S . -B "build/coverage-$RUN_ID" -DCMAKE_BUILD_TYPE=Debug -DENABLE_COVERAGE=ON -DBUILD_TESTING=ON
 cmake --build "build/coverage-$RUN_ID"
-ctest --test-dir "build/coverage-$RUN_ID" --output-on-failure
-gcovr -r . "build/coverage-$RUN_ID" --filter 'src/' --no-markers --txt --print-summary --json coverage.json --fail-under-line 91
+ctest --test-dir "build/coverage-$RUN_ID" --no-tests=error --output-on-failure
+gcovr -r . "build/coverage-$RUN_ID" --filter 'src/' --no-markers --txt --print-summary --json "build/coverage-$RUN_ID/coverage.json"
+python3 scripts/check_coverage_inventory.py "build/coverage-$RUN_ID/coverage.json"
 ```
 
-Dùng GCC/gcov cùng version. Chạy thêm build ASan/UBSan ở W4 với `-DENABLE_SANITIZERS=ON` và cùng CTest. Lượt viết kế hoạch mới chỉ kiểm tài liệu. Test ứng dụng, coverage và benchmark ở trạng thái **chưa chạy**.
+Dùng GCC/gcov cùng version. ASan/UBSan là tùy chọn khi cần tìm lỗi bộ nhớ. Kết quả D01 chỉ bao gồm phần cấu hình hiện có. Coverage của toàn bộ chức năng và benchmark sẽ được đo sau khi triển khai.
 
 ## 7. Đo tải TCP thật
 
-Một runner `tests/load/run.py` dùng Python `asyncio` tạo TCP client thật và ghép response theo request ID. Seed **4062** gồm 250 tài khoản, 30 place mỗi tài khoản với đủ năm nhóm, bạn bè theo vòng lân cận hai chiều và inbox đã/chưa ACK. Mỗi profile dùng bản sao DB sạch cùng seed. Workload 45% list, 20% get, 10% create, 10% update, 5% delete, 10% sync. Mỗi client giữ tối đa một request nghiệp vụ đang chờ, dùng ID/version hợp lệ theo state của nó. Login steady-state ở warm-up. PING, ACK và event có số liệu riêng.
+Một runner `tests/load/run.py` dùng Python `asyncio` tạo TCP client thật và ghép response theo request ID. Seed **4062** tạo 250 tài khoản, mỗi tài khoản có 30 place chia đều năm nhóm. Mỗi mức tải dùng bản sao DB sạch cùng seed. Workload 45% list, 20% get, 10% create, 10% update, 5% delete, 10% sync. Mỗi client giữ tối đa một request đang chờ, dùng ID/version hợp lệ và login trong warm-up. Các ca bạn bè, inbox và push dùng DB tạm của test chức năng.
 
 | Profile | Kịch bản và điều kiện |
 |---|---|
 | `baseline` | 20 rồi 50 clients, warm-up 30 giây và đo 60 giây mỗi mức. Success >=99%, p95 <=500 ms. |
 | `gate` | **100 clients**, warm-up 30 giây và đo **180 giây**. **Success >=99%, p95 <=500 ms và >=100 request thành công/s**. |
 | `stress` | 200 clients, warm-up 30 giây và đo 180 giây. Không crash/mất commit, queue giữ giới hạn, phục hồi trong 30 giây khi giảm về 20 clients. |
-| `soak` | 100 clients, warm-up 30 giây và đo 30 phút. Giữ ngưỡng gate. RSS trung vị 5 phút cuối tăng không quá max(20 MiB, 10%) so với 5 phút đầu. |
-| `login` | 100 login đồng thời và 20 client đã online. Ít nhất 99 login thành công trong 45 giây, PING p95 của client đã online <=500 ms. |
-| `slow` | 100 client thường và 20 client chia đều đọc chậm, không đọc, gửi header nhỏ giọt và ngắt giữa frame. Warm-up 30 giây, đo 180 giây. Client thường đạt success >=99% và p95 <=500 ms. |
 
-Mọi profile phải giữ queue trong giới hạn, DB toàn vẹn và fd về mức ban đầu +2 trong 30 giây sau khi đóng client. Latency tính từ gửi đến khi nhận đủ response. Timeout nghiệp vụ 2 giây. Báo p50/p95/p99 trên response và timeout riêng. Success chia cho mọi request nghiệp vụ bắt đầu trong cửa sổ, gồm cả timeout và lỗi. RPS thành công đếm phản hồi thành công của request bắt đầu và kết thúc trong cửa sổ đo. Lấy mẫu CPU/RSS/fd mỗi giây qua `/proc`, log queue high-water và CPU phía generator. Generator bão hòa thì ghi INVALID và đo lại.
+Ba profile trên là các mức của cùng một bài đo tải. Chạy thêm soak hoặc login burst nếu cần chẩn đoán giới hạn. Giữ ca client chậm, frame dở và timeout trong `TCP-01/02` để kiểm lỗi mạng với ít kết nối.
+
+Mọi mức tải phải giữ queue trong giới hạn, DB toàn vẹn và fd về mức ban đầu +2 trong 30 giây sau khi đóng client. Latency tính từ gửi đến khi nhận đủ response. Timeout nghiệp vụ 2 giây. Báo p50/p95/p99, tỷ lệ thành công/lỗi/timeout và request thành công mỗi giây trong cửa sổ đo. Lấy mẫu CPU, RSS và fd mỗi giây qua `/proc`. Nếu generator bão hòa thì ghi INVALID và đo lại.
 
 ```bash
 cmake -S . -B build/release -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=OFF
 cmake --build build/release
-for profile in baseline gate stress soak login slow; do
+for profile in baseline gate stress; do
   python3 tests/load/run.py --server build/release/place_server --seed 4062 --profile "$profile" --output "reports/load/$profile"
 done
 ```
@@ -223,7 +223,7 @@ Mỗi dòng là một deliverable có ý nghĩa và có test hoặc bằng chứ
 
 | Ngày / Tuần | Deliverable và kiểm chứng | Dependency | Owner | Commit message gợi ý |
 |---|---|---|---|---|
-| D01 / W1 | CMake, CTest, kiểm config, CI coverage | Linux | TBD | `build: bootstrap Linux targets and CI` |
+| D01 / W1 | CMake, CTest, kiểm config và coverage trên WSL | Linux | TBD | `build: bootstrap Linux targets and local tests` |
 | D02 / W1 | POSIX socket và RAII, U-02 | D01 | TBD | `feat: add POSIX socket lifecycle` |
 | D03 / W1 | Frame codec, U-01, TCP-01, CT-01 | D02 | TBD | `feat: frame TCP messages with length and JSON` |
 | D04 / W1 | Poll, RX/TX và timeout, TCP-02 | D02–03 | TBD | `feat: multiplex nonblocking sockets with poll` |
@@ -245,10 +245,10 @@ Mỗi dòng là một deliverable có ý nghĩa và có test hoặc bằng chứ
 | D20 / W3 | Audit toàn nghiệp vụ, LOG-01 | D08,D15–19 | TBD | `feat: record activity without credentials` |
 | D21 / W3 | CLI và full contract C01–C21, E2E-01 | D15–20 | TBD | `test: verify friend sharing and push end to end` |
 | D22 / W4 | Coverage toàn production, test nhánh còn thiếu | M3 | TBD | `test: cover production failure paths` |
-| D23 / W4 | Robustness TCP, restart và sanitizer | D22 | TBD | `test: exercise socket limits and restart recovery` |
+| D23 / W4 | Kiểm TCP với client chậm, timeout và restart | D22 | TBD | `test: exercise socket limits and restart recovery` |
 | D24 / W4 | Runner, seed và kiểm công thức metrics | M3 | TBD | `test: add reproducible asyncio TCP workloads` |
 | D25 / W4 | Baseline, phân tích và sửa bottleneck theo số đo | D23–24 | TBD | `perf: profile baseline and address measured bottlenecks` |
-| D26 / W4 | Gate/stress/soak/login/slow và báo cáo thực | D25 | TBD | `test: record TCP load results and gate checks` |
+| D26 / W4 | Đo 100/200 client và tổng hợp với baseline 20/50 | D25 | TBD | `test: record TCP load results and gate checks` |
 | D27 / W4 | Runbook kiểm từ clean checkout | D26 | TBD | `docs: document build verification and lab limits` |
 | D28 / W4 | Demo, ma trận bằng chứng và bàn giao | D27 | TBD | `docs: add demo steps and acceptance evidence` |
 
@@ -257,18 +257,18 @@ Mỗi dòng là một deliverable có ý nghĩa và có test hoặc bằng chứ
 | M1 cuối W1. `ctest --test-dir build/debug -L w1 --output-on-failure` | PING qua CLI/TCP, 20 socket đồng thời, frame split/gộp và migration đúng. |
 | M2 cuối W2. `ctest --test-dir build/debug -L 'w[12]' --output-on-failure` | Auth/CRUD, hai phiên có một người thắng conflict, tombstone sync và restart giữ dữ liệu. |
 | M3 cuối W3. `ctest --test-dir build/debug -L 'w[123]' --output-on-failure` | 21 contract và E2E chạy, push trước lệnh list, ACK/reconnect và lưu SHARED theo lựa chọn recipient. |
-| M4 cuối W4. Full CTest, coverage mục 6 và các profile mục 7 | Suite/sanitizer sạch, coverage qua gate, toàn bộ báo cáo tải đạt điều kiện và demo từ clean checkout. |
+| M4 cuối W4. Full CTest, coverage mục 6 và bài tải mục 7 | Đủ 15 tiêu chí, test đạt, line coverage >90%, bài tải có báo cáo thực và demo chạy từ clean checkout. |
 
 Mỗi tuần lưu kết quả CTest và coverage cho mã đã có. Milestone FAIL nếu test lỗi, thiếu bằng chứng hoặc thiếu gate tương ứng. Nếu baseline đạt, commit D25 ghi report phân tích thay cho một thay đổi hiệu năng không cần thiết.
 
-## 9. CI, bảo mật và rủi ro
+## 9. Bảo mật và rủi ro
 
-CI Linux chạy build C++17 với warnings, CTest và coverage gate. Kiểm ASan/UBSan trước bàn giao. Dùng Release riêng để đo tải. Bản CLI/server plaintext chạy localhost hoặc lab tin cậy với tài khoản thử nghiệm. Trước khi chạy trên Internet, OpenSSL TLS phải xác minh chứng chỉ/hostname và tích hợp WANT_READ/WANT_WRITE với poll. Binary, DB, secret và dữ liệu đo thô lưu ngoài Git.
+Dùng bản Release để đo tải. Bản CLI/server plaintext chạy localhost hoặc lab tin cậy với tài khoản thử nghiệm. Nếu sau này chạy trên Internet, dùng TLS có xác minh chứng chỉ/hostname. Binary, DB, secret và dữ liệu đo thô lưu ngoài Git.
 
 | Rủi ro chính | Cách giảm |
 |---|---|
-| Mất byte hoặc kẹt vì client chậm | TX offset, quota, deadline, TCP-01/02 và profile slow. |
-| KDF/SQLite làm chậm xử lý | Tách worker, transaction ngắn. Đọc queue/CPU và PING trong login burst trước khi tối ưu. |
+| Mất byte hoặc kẹt vì client chậm | TX offset, quota, deadline và TCP-01/02. |
+| KDF/SQLite làm chậm xử lý | Tách worker, transaction ngắn. Đo trước khi tối ưu. |
 | Mất cập nhật hoặc phát trùng khi reconnect | CAS, change-log và share commit trước push. Test nhiều phiên, lost response, ACK lặp và restart. |
 
 ## 10. Demo và bàn giao
@@ -281,4 +281,4 @@ CI Linux chạy build C++17 với warnings, CTest và coverage gate. Kiểm ASan
 
 ## 11. Phương án 3 tuần
 
-Chỉ dùng khi có ít nhất ba người và Linux/CI sẵn. Tuần 1 chia transport, DB/auth và test/CLI để xong W1 và D08–09 (9 commit). Tuần 2 làm place/sync song song với friend/share/push sau khi schema và quy tắc owner ổn định (D10–19, 10 commit). Tuần 3 hoàn tất audit/E2E trước robustness, coverage, tải và bàn giao (D20–28, 9 commit). Giữ cùng 15 tiêu chí, đầy đủ test và gate, gồm cả soak. Nếu milestone trễ, dùng lịch 4 tuần.
+Chỉ dùng khi có ít nhất ba người và Linux đã sẵn sàng. Tuần 1 chia transport, DB/auth và test/CLI để xong W1 và D08–09 (9 commit). Tuần 2 làm place/sync song song với friend/share/push sau khi schema và quy tắc owner ổn định (D10–19, 10 commit). Tuần 3 hoàn tất audit/E2E trước kiểm TCP, coverage, tải và bàn giao (D20–28, 9 commit). Giữ đủ 15 tiêu chí, unit test, line coverage >90% và bài đo tải. Nếu milestone trễ, dùng lịch 4 tuần.

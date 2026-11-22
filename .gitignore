@@ -40,6 +40,44 @@ vgcore.*
 bin/
 build/
 obj/
+cmake-build-*/
+CMakeCache.txt
+CMakeFiles/
+CMakeUserPresets.json
+CTestTestfile.cmake
+Testing/
+cmake_install.cmake
+compile_commands.json
+
+# ---------- Bao cao test, coverage va load ----------
+/reports/
+/coverage.json
+/coverage.xml
+*.gcov
+*.gcda
+*.gcno
+
+# ---------- Moi truong Python va du lieu chay cuc bo ----------
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.env
+.env.*
+!.env.example
+!.env.sample
+*.db
+*.db-journal
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite-journal
+*.sqlite-shm
+*.sqlite-wal
+*.sqlite3
+*.sqlite3-journal
+*.sqlite3-shm
+*.sqlite3-wal
 
 # thong tin go loi cua macOS / Windows
 *.dSYM/
@@ -57,6 +95,22 @@ lab*
 lab00_build/hello
 lab00_build/calc
 
+# Binary khong co phan mo rong da xuat hien trong cac bai lab
+/ban_ve
+/bt2_tuan3
+/chatroom_server
+/resolve
+/simple_http_server
+/2-Chap2/assignment_ex1
+/2-Chap2/assignment_ex2
+/2-Chap2/assignment_ex3
+/3-Chap3/L5-IOMultiPlexing/select_server
+/3-Chap3/temp/music_client
+/3-Chap3/temp/music_server
+/3-Chap3/udp_client
+/3-Chap3/udp_server
+/4-Chap4/chat_room_server
+
 # ---------- Tep do cac bai lab sinh ra khi chay ----------
 sinhvien.txt
 sinhvien_ban_sao.txt
@@ -64,6 +118,12 @@ nguon_mau.bin
 ban_sao.bin
 listing.html
 tep_tam*.txt
+/out.txt
+/1-Chap1/out.txt
+/2-Chap2/out.txt
+/ls.txt
+/1-Chap1/ls.txt
+/serveraddr.txt
 
 # ---------- LaTeX (slide Beamer) ----------
 *.aux
@@ -87,3 +147,6 @@ tep_tam*.txt
 !.vscode/c_cpp_properties.json
 .vscode/settings.json
 .vscode/ipch/
+
+# ---------- Tai lieu ca nhan chi luu cuc bo ----------
+/docs/
