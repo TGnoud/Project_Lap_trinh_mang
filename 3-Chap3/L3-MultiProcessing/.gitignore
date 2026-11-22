@@ -1,0 +1,16 @@
+bin/
+*.o
+*.dSYM/
+
+fork
+ex1
+ex2
+ex3
+ex4
+ex5
+ex6
+
+forking_server
+forking_html
+preforking_server
+forking_client

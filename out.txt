@@ -1,0 +1,5 @@
+    PID TTY          TIME CMD
+   3862 pts/4    00:00:00 bash
+   9601 pts/4    00:00:00 telnet_server
+  10020 pts/4    00:00:00 sh
+  10021 pts/4    00:00:00 ps
