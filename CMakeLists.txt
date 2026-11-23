@@ -31,13 +31,18 @@ elseif(ENABLE_SANITIZERS)
     target_link_options(place_build_options INTERFACE -fsanitize=address,undefined)
 endif()
 
+find_package(json-c CONFIG REQUIRED)
+add_library(place_frame STATIC src/protocol/frame.c)
+target_include_directories(place_frame PUBLIC src)
+target_link_libraries(place_frame PUBLIC place_build_options PRIVATE json-c::json-c)
+
 add_library(place_config STATIC src/config.c)
 target_include_directories(place_config PUBLIC src)
 target_link_libraries(place_config PUBLIC place_build_options)
 
-add_library(place_transport STATIC src/transport/tcp.c)
+add_library(place_transport STATIC src/transport/tcp.c src/transport/frame_io.c)
 target_include_directories(place_transport PUBLIC src)
-target_link_libraries(place_transport PUBLIC place_build_options)
+target_link_libraries(place_transport PUBLIC place_build_options place_frame)
 
 add_executable(place_server src/server/main.c)
 target_link_libraries(place_server PRIVATE place_config place_transport)
@@ -76,4 +81,17 @@ if(BUILD_TESTING)
         "${CMAKE_CURRENT_SOURCE_DIR}/tests/tcp/socket_demo.py"
         "$<TARGET_FILE:place_server>" "$<TARGET_FILE:place_cli>")
     set_tests_properties(transport.demo PROPERTIES LABELS w1 TIMEOUT 20)
+
+    add_executable(place_frame_test tests/unit/frame_test.c)
+    target_link_libraries(place_frame_test PRIVATE place_frame)
+    add_test(NAME frame.unit COMMAND place_frame_test)
+    set_tests_properties(frame.unit PROPERTIES LABELS "w1;unit")
+
+    add_test(NAME frame.tcp COMMAND "${Python3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tests/tcp/framing_cases.py" tcp
+        "$<TARGET_FILE:place_server>" "$<TARGET_FILE:place_cli>")
+    add_test(NAME frame.contract COMMAND "${Python3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tests/tcp/framing_cases.py" contract
+        "$<TARGET_FILE:place_server>")
+    set_tests_properties(frame.tcp frame.contract PROPERTIES LABELS w1 TIMEOUT 30)
 endif()

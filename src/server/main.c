@@ -1,4 +1,5 @@
 #include "config.h"
+#include "transport/frame_io.h"
 #include "transport/tcp.h"
 
 #include <sys/socket.h>
@@ -34,7 +35,18 @@ int main(int argc, char* argv[]) {
     }
     puts("Client connected");
 
+    // Trả lại dữ liệu như bài 2-Chap2/tcp_server.c, sau khi nhận đủ một frame.
+    FrameInput input = {0};
+    int received;
+    while ((received = receive_frame(client, &input)) == 1) {
+        if (send_frame(client, input.reader.body, input.reader.body_size) < 0) {
+            perror("send");
+            received = -1;
+            break;
+        }
+    }
+    frame_reset(&input.reader);
     close(client);
     close(listener);
-    return 0;
+    return received == 0 ? 0 : 1;
 }

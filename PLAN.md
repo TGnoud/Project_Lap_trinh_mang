@@ -4,7 +4,7 @@ Cập nhật ngày 23/11/2026. Kế hoạch 4 tuần dành cho CLI client và se
 
 ## 1. Phạm vi và tài liệu đã đọc
 
-Repo có tài liệu môn học và code mẫu C. Đã đọc **71 tệp .c/.h** trong `1-Chap1` đến `4-Chap4` (24/11/25/11 tệp), kể cả ví dụ trong `temp/`, cùng hai Makefile bài lab. D01 có CMake, cấu hình và unit test C. D02 có server và client TCP nhận một kết nối rồi đóng. [PROGRESS.md](PROGRESS.md) ghi các lần kiểm trên WSL. Framing, `poll()`, chức năng nghiệp vụ, migration và bài đo tải còn phải triển khai.
+Repo có tài liệu môn học và code mẫu C. Đã đọc **71 tệp .c/.h** trong `1-Chap1` đến `4-Chap4` (24/11/25/11 tệp), kể cả ví dụ trong `temp/`, cùng hai Makefile bài lab. D01 có CMake, cấu hình và unit test C. D02 có server và client TCP nhận một kết nối rồi đóng. D03 bổ sung frame JSON UTF-8 và demo echo trên kết nối đó. [PROGRESS.md](PROGRESS.md) ghi các lần kiểm trên WSL. `poll()`, chức năng nghiệp vụ, migration và bài đo tải còn phải triển khai.
 
 | Kiến thức | Giáo trình, theo số trang in | Code mẫu và ứng dụng |
 |---|---|---|
@@ -138,7 +138,7 @@ Mỗi dòng JSON dưới đây là body cho một frame riêng. Tài khoản/tok
 
 ## 5. Ma trận rubric
 
-Tất cả test ID trong bảng là test **cần viết**.
+Các ID trong bảng là mục tiêu nghiệm thu. [PROGRESS.md](PROGRESS.md) ghi test đã viết, đã chạy và phạm vi đã kiểm của từng task.
 
 | ID / Tiêu chí | Điểm | Module | Dependency | Test ID và điều kiện đạt |
 |---|---:|---|---|---|
@@ -161,9 +161,9 @@ Tất cả test ID trong bảng là test **cần viết**.
 
 ## 6. Test và coverage
 
-| Unit ID cần viết | Module production và tình huống cần kiểm |
+| Unit ID | Module production và tình huống cần kiểm |
 |---|---|
-| `U-01` | Framing/envelope: header từng byte, body ở mọi offset, các frame gộp, UTF-8 split, length 0/65.536/65.537, JSON sai và EOF dở. |
+| `U-01` | Framing: header từng byte, body ở mọi offset, các frame gộp, UTF-8 split, length 0/65.536/65.537 và JSON sai. EOF dở được kiểm qua TCP thật trong `TCP-01`. |
 | `U-02` | D02: thử mở, kết nối và đóng fd với TCP loopback, kiểm lỗi địa chỉ, bind, connect. D04 bổ sung EINTR/EAGAIN, offset TX, HUP cùng data, deadline và backpressure. |
 | `U-03` | Dispatcher/worker: auth guard, schema, 21 lệnh, queue đầy, completion cũ, không chặn I/O và shutdown. |
 | `U-04` | SQLite/repository: migration DB mới/nâng version, busy, FK, unique, rollback. Dùng SQLite thật trong DB tạm. |
@@ -179,7 +179,7 @@ Tất cả test ID trong bảng là test **cần viết**.
 
 Dùng chương trình unit test viết bằng C với `assert()` và đăng ký vào CTest. Giữ assertion hoạt động cả ở bản Release. Các ca contract và E2E có thể dùng chung bộ chạy Python với integration TCP. Test Python nhận binary từ đúng CMake build đang chạy. Đo line coverage của toàn bộ mã trong `src/`, gồm cả main, worker và CLI. Script kiểm báo cáo yêu cầu mọi tệp triển khai đều có số liệu và tỷ lệ dòng thực thi **lớn hơn 90%**. Branch coverage dùng để tham khảo. Dùng build sạch mỗi lượt và dừng subprocess sạch để flush counter.
 
-Lệnh dự kiến chạy trong Linux sau khi có code và test. CTest label `w1`–`w4` ghi tuần bắt đầu có test. Đặt `RUN_ID` mới cho mỗi lần đo.
+Chạy trên Linux/WSL với GCC, CMake, Python 3, gcovr và gói phát triển `libjson-c-dev`. CTest label `w1`–`w4` ghi tuần bắt đầu có test. Đặt `RUN_ID` mới cho mỗi lần đo.
 
 ```bash
 cmake -S . -B build/debug -DCMAKE_BUILD_TYPE=Debug -DBUILD_TESTING=ON
@@ -193,7 +193,7 @@ gcovr -r . "build/coverage-$RUN_ID" --filter 'src/' --no-markers --txt --print-s
 python3 scripts/check_coverage_inventory.py "build/coverage-$RUN_ID/coverage.json"
 ```
 
-Dùng GCC/gcov cùng version. ASan/UBSan là tùy chọn khi cần tìm lỗi bộ nhớ. Kết quả D01 chỉ bao gồm phần cấu hình hiện có. Coverage của toàn bộ chức năng và benchmark sẽ được đo sau khi triển khai.
+Dùng GCC/gcov cùng version. ASan/UBSan là tùy chọn khi cần tìm lỗi bộ nhớ. Kết quả đến D03 gồm cấu hình, socket và echo theo frame. Coverage của toàn bộ chức năng và benchmark sẽ được đo sau khi triển khai.
 
 ## 7. Đo tải TCP thật
 

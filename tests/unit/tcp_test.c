@@ -1,4 +1,5 @@
 #include "transport/tcp.h"
+#include "transport/frame_io.h"
 
 #include <arpa/inet.h>
 #include <dirent.h>
@@ -76,10 +77,24 @@ static void test_refused_connection(void) {
     assert(close(bound_socket) == 0);
 }
 
+static void test_frame_io_errors(void) {
+    int pair[2];
+    assert(socketpair(AF_UNIX, SOCK_STREAM, 0, pair) == 0);
+    assert(send_frame(pair[0], "", 0) == -1 && errno == EINVAL);
+    assert(close(pair[1]) == 0);
+    assert(send_frame(pair[0], "{}", 2) == -1 && errno == EPIPE);
+    assert(close(pair[0]) == 0);
+
+    FrameInput input = {0};
+    assert(receive_frame(-1, &input) == -1);
+    frame_reset(&input.reader);
+}
+
 int main(void) {
     test_loopback();
     test_invalid_endpoints();
     test_failed_bind();
     test_refused_connection();
+    test_frame_io_errors();
     return 0;
 }
