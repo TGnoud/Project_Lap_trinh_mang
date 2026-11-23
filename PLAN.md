@@ -4,7 +4,7 @@ Cập nhật ngày 23/11/2026. Kế hoạch 4 tuần dành cho CLI client và se
 
 ## 1. Phạm vi và tài liệu đã đọc
 
-Repo có tài liệu môn học và code mẫu C. Đã đọc **71 tệp .c/.h** trong `1-Chap1` đến `4-Chap4` (24/11/25/11 tệp), kể cả ví dụ trong `temp/`, cùng hai Makefile bài lab. D01 đã có nền CMake, kiểm tra tham số và test chạy trên Ubuntu WSL2. [PROGRESS.md](PROGRESS.md) ghi kết quả D01. Socket, chức năng nghiệp vụ, migration và bài đo tải còn phải triển khai.
+Repo có tài liệu môn học và code mẫu C. Đã đọc **71 tệp .c/.h** trong `1-Chap1` đến `4-Chap4` (24/11/25/11 tệp), kể cả ví dụ trong `temp/`, cùng hai Makefile bài lab. D01 có CMake, cấu hình và unit test C. D02 có server và client TCP nhận một kết nối rồi đóng. [PROGRESS.md](PROGRESS.md) ghi các lần kiểm trên WSL. Framing, `poll()`, chức năng nghiệp vụ, migration và bài đo tải còn phải triển khai.
 
 | Kiến thức | Giáo trình, theo số trang in | Code mẫu và ứng dụng |
 |---|---|---|
@@ -19,7 +19,9 @@ Bản nộp lab gồm tài khoản/phiên, địa điểm thuộc năm nhóm `FO
 
 ## 2. Kiến trúc và cây thư mục
 
-Linux hoặc WSL2 Ubuntu, C++17, CMake/CTest, TCP POSIX trực tiếp. `poll()` phù hợp ví dụ môn học và quy mô 20–200 client, theo dõi cả đọc và ghi. SQLite3 đặt trên filesystem Linux cục bộ. nlohmann/json xử lý JSON. OpenSSL libcrypto dùng cho PBKDF2 và token. Các bài UDP, HTTP, fork và thread-per-client dùng để đối chiếu, ứng dụng dùng một tiến trình server.
+Linux hoặc WSL2 Ubuntu, C11 ở chế độ `gnu11` như Makefile bài lab, CMake/CTest và TCP POSIX trực tiếp. `poll()` phù hợp ví dụ môn học và quy mô 20–200 client, theo dõi cả đọc và ghi. SQLite3 đặt trên filesystem Linux cục bộ. Dùng json-c khi tới phần JSON ở D03. OpenSSL libcrypto dùng cho PBKDF2 và token. Các bài UDP, HTTP, fork và thread-per-client dùng để đối chiếu, ứng dụng dùng một tiến trình server.
+
+D01 dựa trên ví dụ đọc `argc`/`argv`. D02 dùng lại trình tự socket của hai bài TCP và phần `getaddrinfo()`/`freeaddrinfo()` của bài phân giải tên. D03 dựa trên [bài đổi thứ tự byte](3-Chap3/bt1_tuan3.c) và cách giữ bộ đệm theo kết nối trong [chat room](4-Chap4/chat_room_server.c). D04 dùng lại vòng `poll()` của chat room và bổ sung xử lý ghi dở. Phần chức năng riêng của đồ án được viết theo yêu cầu ở những nơi bài mẫu chưa có.
 
 ```mermaid
 flowchart LR
@@ -162,7 +164,7 @@ Tất cả test ID trong bảng là test **cần viết**.
 | Unit ID cần viết | Module production và tình huống cần kiểm |
 |---|---|
 | `U-01` | Framing/envelope: header từng byte, body ở mọi offset, các frame gộp, UTF-8 split, length 0/65.536/65.537, JSON sai và EOF dở. |
-| `U-02` | Transport/poll: socket thật và seam syscall hẹp cho EINTR/EAGAIN, offset TX, HUP cùng data, deadline, backpressure và fd cleanup. |
+| `U-02` | D02: thử mở, kết nối và đóng fd với TCP loopback, kiểm lỗi địa chỉ, bind, connect. D04 bổ sung EINTR/EAGAIN, offset TX, HUP cùng data, deadline và backpressure. |
 | `U-03` | Dispatcher/worker: auth guard, schema, 21 lệnh, queue đầy, completion cũ, không chặn I/O và shutdown. |
 | `U-04` | SQLite/repository: migration DB mới/nâng version, busy, FK, unique, rollback. Dùng SQLite thật trong DB tạm. |
 | `U-05` | Account/session/crypto: verifier, salt/token, RNG lỗi, expiry, resume, revoke và validation. |
@@ -172,10 +174,10 @@ Tất cả test ID trong bảng là test **cần viết**.
 | `U-09` | CLI/server entrypoint: config sai, startup/shutdown, đợi stdin vẫn nhận event, cache theo user, offline, hiển thị SHARED và dedup. |
 
 - **Integration.** Các ID mục 5 chạy trên loopback TCP thật và server subprocess dùng DB file tạm. `TCP-01/02` ép split/coalesced, gửi dở và client chậm chạy cạnh client bình thường. `ACL-01` chặn thao tác place/share/ACK của người khác. `SYNC-01` kiểm nhiều trang, hai phiên, thay đổi giữa trang và restart. `SH-02` kiểm login push trước khi gọi list, mất ACK rồi reconnect, ACK đã commit rồi restart, tag đúng lúc login, và response xen event. Chờ điều kiện có deadline.
-- **Contract.** `CT-01` đọc chéo golden frame bằng C++ và Python codec độc lập. `CT-02` kiểm C01–C21 với payload đúng/sai, quyền, request ID, mã lỗi và không có side effect khi lỗi. `CT-03` kiểm event, ACK và giới hạn page.
+- **Contract.** `CT-01` đọc chéo golden frame bằng mã C và codec Python độc lập. `CT-02` kiểm C01–C21 với payload đúng/sai, quyền, request ID, mã lỗi và không có side effect khi lỗi. `CT-03` kiểm event, ACK và giới hạn page.
 - **E2E.** `E2E-01` chạy CLI thật qua đăng ký → CRUD → kết bạn → Bob offline được tag → login nhận push → ACK → chọn lưu SHARED. `E2E-02` chạy hai phiên cùng owner với conflict, expiry và restart.
 
-Dùng GoogleTest cho unit test và CTest để chạy toàn bộ bộ kiểm thử. Các ca contract và E2E có thể dùng chung bộ chạy Python với integration TCP để tránh dựng thêm hạ tầng. Test Python nhận binary từ đúng CMake build đang chạy. Đo line coverage của toàn bộ mã trong `src/`, gồm cả main, worker và CLI. Script kiểm báo cáo yêu cầu mọi tệp triển khai đều có số liệu và tỷ lệ dòng thực thi **lớn hơn 90%**. Branch coverage dùng để tham khảo. Dùng build sạch mỗi lượt và dừng subprocess sạch để flush counter.
+Dùng chương trình unit test viết bằng C với `assert()` và đăng ký vào CTest. Giữ assertion hoạt động cả ở bản Release. Các ca contract và E2E có thể dùng chung bộ chạy Python với integration TCP. Test Python nhận binary từ đúng CMake build đang chạy. Đo line coverage của toàn bộ mã trong `src/`, gồm cả main, worker và CLI. Script kiểm báo cáo yêu cầu mọi tệp triển khai đều có số liệu và tỷ lệ dòng thực thi **lớn hơn 90%**. Branch coverage dùng để tham khảo. Dùng build sạch mỗi lượt và dừng subprocess sạch để flush counter.
 
 Lệnh dự kiến chạy trong Linux sau khi có code và test. CTest label `w1`–`w4` ghi tuần bắt đầu có test. Đặt `RUN_ID` mới cho mỗi lần đo.
 
@@ -221,36 +223,36 @@ Lưu exact command, seed, OS/kernel, CPU/RAM/storage, toolchain, build config v�
 
 Mỗi dòng là một deliverable có ý nghĩa và có test hoặc bằng chứng kèm theo. Owner TBD. Mỗi tuần có bảy commit dự kiến.
 
-| Ngày / Tuần | Deliverable và kiểm chứng | Dependency | Owner | Commit message gợi ý |
+| Ngày / Tuần | Deliverable và kiểm chứng | Dependency | Owner | Thông điệp commit gợi ý |
 |---|---|---|---|---|
-| D01 / W1 | CMake, CTest, kiểm config và coverage trên WSL | Linux | TBD | `build: bootstrap Linux targets and local tests` |
-| D02 / W1 | POSIX socket và RAII, U-02 | D01 | TBD | `feat: add POSIX socket lifecycle` |
-| D03 / W1 | Frame codec, U-01, TCP-01, CT-01 | D02 | TBD | `feat: frame TCP messages with length and JSON` |
-| D04 / W1 | Poll, RX/TX và timeout, TCP-02 | D02–03 | TBD | `feat: multiplex nonblocking sockets with poll` |
-| D05 / W1 | Worker và pipe, U-03 | D04 | TBD | `feat: isolate server work with bounded queues` |
-| D06 / W1 | SQLite và migration, U-04 | D01,D05 | TBD | `feat: add SQLite schema and transactions` |
-| D07 / W1 | Dispatcher và CLI PING, U-03/U-09, C01 | D03–06 | TBD | `test: verify PING through real TCP and CLI` |
-| D08 / W2 | Đăng ký, ME, audit tối thiểu, AUTH-01 | M1 | TBD | `feat: register accounts with salted password hashes` |
-| D09 / W2 | Login/resume/logout, AUTH-02 | D08 | TBD | `feat: add expiring sessions and logout` |
-| D10 / W2 | List/get, ACL, PLACE-01/ACL-01 | D09 | TBD | `feat: list and read owner-scoped places` |
-| D11 / W2 | Create với ID ổn định, PLACE-02 phần OWN | D10 | TBD | `feat: persist favorite places with stable IDs` |
-| D12 / W2 | CAS update/delete, PLACE-03/PLACE-04 | D11 | TBD | `feat: version edits and write deletion tombstones` |
-| D13 / W2 | Sync theo cursor, SYNC-01 | D11–12 | TBD | `feat: apply place changes across sessions` |
-| D14 / W2 | CLI cache, conflict, restart, E2E-02 | D09–13 | TBD | `test: verify CLI recovery and version conflicts` |
-| D15 / W3 | Gửi/xem lời mời, FR-01 | M2 | TBD | `feat: add pending friendship invitations` |
-| D16 / W3 | Quyết định/hủy/list, FR-02/FR-03/FR-04 | D15 | TBD | `feat: manage symmetric friendships` |
-| D17 / W3 | Tag nhiều bạn và snapshot, SH-01 | D16,D12 | TBD | `feat: persist tagged place snapshots atomically` |
-| D18 / W3 | Inbox và save, PLACE-02 phần SHARED | D17 | TBD | `feat: let recipients save shared place copies` |
-| D19 / W3 | Push login và ACK, SH-02, CT-03 | D09,D17–18 | TBD | `feat: push inbox events and replay unacked shares` |
-| D20 / W3 | Audit toàn nghiệp vụ, LOG-01 | D08,D15–19 | TBD | `feat: record activity without credentials` |
-| D21 / W3 | CLI và full contract C01–C21, E2E-01 | D15–20 | TBD | `test: verify friend sharing and push end to end` |
-| D22 / W4 | Coverage toàn production, test nhánh còn thiếu | M3 | TBD | `test: cover production failure paths` |
-| D23 / W4 | Kiểm TCP với client chậm, timeout và restart | D22 | TBD | `test: exercise socket limits and restart recovery` |
-| D24 / W4 | Runner, seed và kiểm công thức metrics | M3 | TBD | `test: add reproducible asyncio TCP workloads` |
-| D25 / W4 | Baseline, phân tích và sửa bottleneck theo số đo | D23–24 | TBD | `perf: profile baseline and address measured bottlenecks` |
-| D26 / W4 | Đo 100/200 client và tổng hợp với baseline 20/50 | D25 | TBD | `test: record TCP load results and gate checks` |
-| D27 / W4 | Runbook kiểm từ clean checkout | D26 | TBD | `docs: document build verification and lab limits` |
-| D28 / W4 | Demo, ma trận bằng chứng và bàn giao | D27 | TBD | `docs: add demo steps and acceptance evidence` |
+| D01 / W1 | CMake cho C, CTest, kiểm config và coverage trên WSL | Linux | TBD | `build: thiết lập biên dịch và kiểm thử mã C trên Linux` |
+| D02 / W1 | Socket POSIX theo bài mẫu, đóng fd bằng `close()`, U-02 | D01 | TBD | `feat: mở, kết nối và đóng socket POSIX theo bài mẫu` |
+| D03 / W1 | Frame codec, U-01, TCP-01, CT-01 | D02 | TBD | `feat: đóng khung thông điệp TCP bằng độ dài và JSON` |
+| D04 / W1 | Poll, RX/TX và timeout, TCP-02 | D02–03 | TBD | `feat: xử lý nhiều socket không chặn bằng poll` |
+| D05 / W1 | Worker và pipe, U-03 | D04 | TBD | `feat: tách xử lý nghiệp vụ bằng worker và hàng đợi hữu hạn` |
+| D06 / W1 | SQLite và migration, U-04 | D01,D05 | TBD | `feat: thêm lược đồ SQLite và giao dịch` |
+| D07 / W1 | Dispatcher và CLI PING, U-03/U-09, C01 | D03–06 | TBD | `test: kiểm tra lệnh PING qua TCP thật và CLI` |
+| D08 / W2 | Đăng ký, ME, audit tối thiểu, AUTH-01 | M1 | TBD | `feat: đăng ký tài khoản với mật khẩu băm kèm salt` |
+| D09 / W2 | Login/resume/logout, AUTH-02 | D08 | TBD | `feat: thêm phiên có thời hạn và đăng xuất` |
+| D10 / W2 | List/get, ACL, PLACE-01/ACL-01 | D09 | TBD | `feat: liệt kê và đọc địa điểm theo quyền chủ sở hữu` |
+| D11 / W2 | Create với ID ổn định, PLACE-02 phần OWN | D10 | TBD | `feat: lưu địa điểm yêu thích với mã định danh ổn định` |
+| D12 / W2 | CAS update/delete, PLACE-03/PLACE-04 | D11 | TBD | `feat: kiểm tra phiên bản khi sửa và ghi dấu khi xóa địa điểm` |
+| D13 / W2 | Sync theo cursor, SYNC-01 | D11–12 | TBD | `feat: đồng bộ thay đổi địa điểm giữa các phiên` |
+| D14 / W2 | CLI cache, conflict, restart, E2E-02 | D09–13 | TBD | `test: kiểm tra CLI sau khi kết nối lại và khi xung đột phiên bản` |
+| D15 / W3 | Gửi/xem lời mời, FR-01 | M2 | TBD | `feat: gửi và xem lời mời kết bạn đang chờ` |
+| D16 / W3 | Quyết định/hủy/list, FR-02/FR-03/FR-04 | D15 | TBD | `feat: quản lý quan hệ bạn bè hai chiều` |
+| D17 / W3 | Tag nhiều bạn và snapshot, SH-01 | D16,D12 | TBD | `feat: lưu bản chụp địa điểm cho bạn được gắn thẻ trong một giao dịch` |
+| D18 / W3 | Inbox và save, PLACE-02 phần SHARED | D17 | TBD | `feat: cho người nhận lưu bản sao địa điểm được chia sẻ` |
+| D19 / W3 | Push login và ACK, SH-02, CT-03 | D09,D17–18 | TBD | `feat: đẩy thông báo và gửi lại mục chia sẻ chưa được xác nhận` |
+| D20 / W3 | Audit toàn nghiệp vụ, LOG-01 | D08,D15–19 | TBD | `feat: ghi nhật ký hoạt động và ẩn thông tin xác thực` |
+| D21 / W3 | CLI và full contract C01–C21, E2E-01 | D15–20 | TBD | `test: kiểm thử đầu cuối luồng kết bạn, chia sẻ và nhận thông báo` |
+| D22 / W4 | Coverage toàn production, test nhánh còn thiếu | M3 | TBD | `test: bổ sung kiểm thử đường xử lý lỗi của ứng dụng` |
+| D23 / W4 | Kiểm TCP với client chậm, timeout và restart | D22 | TBD | `test: kiểm tra giới hạn socket và phục hồi sau khởi động lại` |
+| D24 / W4 | Runner, seed và kiểm công thức metrics | M3 | TBD | `test: thêm bài đo tải TCP có thể chạy lại bằng asyncio` |
+| D25 / W4 | Baseline, phân tích và sửa bottleneck theo số đo | D23–24 | TBD | `perf: đo tải cơ sở và xử lý điểm nghẽn theo số liệu` |
+| D26 / W4 | Đo 100/200 client và tổng hợp với baseline 20/50 | D25 | TBD | `test: ghi kết quả đo tải TCP và đối chiếu tiêu chí đạt` |
+| D27 / W4 | Runbook kiểm từ clean checkout | D26 | TBD | `docs: hướng dẫn biên dịch, kiểm thử và nêu giới hạn bản lab` |
+| D28 / W4 | Demo, ma trận bằng chứng và bàn giao | D27 | TBD | `docs: bổ sung các bước demo và bằng chứng nghiệm thu` |
 
 | Milestone và lệnh dự kiến | PASS khi |
 |---|---|

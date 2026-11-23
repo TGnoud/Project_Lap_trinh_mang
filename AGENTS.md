@@ -12,11 +12,12 @@
 
 - Đọc `PLAN.md` và ma trận R01–R15 trước khi sửa ứng dụng. Làm theo milestone được yêu cầu.
 - `1-Chap1/` đến `4-Chap4/` là code mẫu. `0-Docs/` và `1-Docs/` là tài liệu tham chiếu. Giữ nguyên các bài mẫu, tài liệu và thay đổi có sẵn của người dùng.
-- Viết mã ứng dụng trong `src/`, test trong `tests/` và migration trong `migrations/`. Dùng Linux hoặc WSL2 Ubuntu, C++17 và CMake/CTest.
+- Viết mã ứng dụng bằng C trong `src/`, test trong `tests/` và migration trong `migrations/`. Dùng Linux hoặc WSL2 Ubuntu, GCC ở chế độ `gnu11` như bài lab và CMake/CTest. Unit test viết bằng C. Python dùng cho test TCP, báo cáo và đo tải.
 
 ## Quy tắc triển khai
 
-- Dùng TCP POSIX trực tiếp và `poll()` non-blocking. Giữ framing 4 byte big-endian và JSON UTF-8 tối đa 64 KiB. Tách transport, framing, dispatcher, service và repository.
+- Dùng lại code mẫu môn học khi đáp ứng yêu cầu. Ghi chú nguồn và chỉ bổ sung phần mẫu chưa có hoặc sửa phần mẫu chưa đáp ứng điều kiện. Quản lý socket bằng `int fd` và lời gọi `close()` trực tiếp. Với đề xuất mới vượt phạm vi task hoặc thay đổi cách đã thống nhất, giải thích vì sao đề xuất đó tốt hơn cho đồ án, hỏi người dùng và chờ xác nhận trước khi áp dụng.
+- Dùng TCP POSIX trực tiếp và `poll()` non-blocking. Giữ framing 4 byte big-endian và JSON UTF-8 tối đa 64 KiB. Dùng json-c từ task triển khai JSON. Tách transport, framing, dispatcher, service và repository.
 - Vòng `poll()` sở hữu socket. Đưa SQLite và băm mật khẩu sang worker hữu hạn. Kiểm lỗi syscall, giữ offset khi gửi dở và giới hạn bộ đệm mỗi kết nối.
 - Lấy danh tính từ phiên server. Kiểm owner và friendship trước thay đổi. Ghi mutation và change-log hoặc inbox trong cùng transaction khi có liên quan.
 - Giữ push tự động sau login, ACK idempotent và nguồn `SHARED/shared_by`. Client chỉ thay đổi dữ liệu khi online. Giữ password, token và payload xác thực ngoài log.

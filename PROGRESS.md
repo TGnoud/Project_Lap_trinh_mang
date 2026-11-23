@@ -14,3 +14,11 @@ Nhật ký trạng thái theo từng task. Dùng mã `D01`–`D28` từ [PLAN.md
 | 23/11/2026 | DOC-03 | `DONE` | Đã bỏ qua `docs/`, đầu ra build/test, dữ liệu chạy cục bộ và binary bài lab. `git check-ignore` xác nhận 18 đường dẫn bỏ qua và 13 đường dẫn giữ lại. `docs/` chưa có tệp được Git theo dõi. [Ghi chú kiểm tra](docs/phan-bien/DOC-03.md) lưu cục bộ. |
 | 23/11/2026 | DOC-04 | `IN_PROGRESS` | Gỡ workflow CI và rà lại kế hoạch theo ba yêu cầu về chức năng, unit test/coverage và bài đo tải. |
 | 23/11/2026 | DOC-04 | `DONE` | Đã gỡ workflow CI khỏi repo và vùng staged. Kế hoạch giữ đủ 15 tiêu chí, kiểm line coverage >90% trên WSL và một bài tải TCP ở 20/50/100/200 client. CTest D01 đạt 7/7. Script chấp nhận báo cáo D01 100%, từ chối 90% và chấp nhận 90,5%. [Ghi chú phản biện](docs/phan-bien/DOC-04.md). |
+| 23/11/2026 | DOC-05 | `IN_PROGRESS` | Viết lại 28 thông điệp commit gợi ý trong `PLAN.md` bằng tiếng Việt. |
+| 23/11/2026 | DOC-05 | `DONE` | Đã dịch 28 thông điệp, giữ tiền tố và nội dung các task. Đã kiểm đủ 7 commit dự kiến mỗi tuần và chạy `git diff --check`. [Ghi chú](docs/phan-bien/DOC-05.md). |
+| 23/11/2026 | D02/W1 | `IN_PROGRESS` | Làm vòng đời TCP POSIX theo mẫu C, giữ C++17 và gọi `close()` trực tiếp. Kiểm socket thật trong nhóm U-02. |
+| 23/11/2026 | D02/W1 | `DONE` | Build và CTest trên Ubuntu WSL2 đạt 8/8. U-02 kiểm socket loopback và xác minh không rò fd khi bind/connect lỗi. Line coverage 91,49% (129/141). Kết quả ở `build/d02-check/`. [Tài liệu phản biện D02](docs/phan-bien/D02-W1.md). |
+| 23/11/2026 | D01/W1 | `IN_PROGRESS` | Chuyển CMake, cấu hình dòng lệnh và unit test sang C theo phương án đã chốt. |
+| 23/11/2026 | D02/W1 | `IN_PROGRESS` | Chuyển hai chương trình TCP, module socket và U-02 sang C, bám trình tự của bài mẫu. |
+| 23/11/2026 | D01/W1 | `DONE` | CMake chỉ bật C, build mới với GCC 15.2.0 ở chế độ `gnu11` và chạy unit test C qua CTest. `config.c` đạt 47/47 dòng. [Tài liệu phản biện D01 bản C](docs/phan-bien/D01-W1.md). |
+| 23/11/2026 | D02/W1 | `DONE` | Đã chuyển server/client TCP và U-02 sang C, giữ code mẫu và test Python. Build `build/c-w1-check/` chạy 8/8 mục CTest, gồm kết nối TCP thật. Coverage của D01/D02 bản C đạt 90,48% (114/126 dòng), qua ngưỡng >90%. [Tài liệu phản biện D02 bản C](docs/phan-bien/D02-W1.md). |
