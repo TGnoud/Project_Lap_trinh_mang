@@ -1,13 +1,19 @@
 #include "config.h"
-#include "transport/frame_io.h"
+#include "transport/poll_loop.h"
 #include "transport/tcp.h"
 
-#include <sys/socket.h>
+#include <signal.h>
+#include <stdio.h>
 #include <unistd.h>
 
-#include <stdio.h>
+static volatile sig_atomic_t stop_requested = 0;
 
-int main(int argc, char* argv[]) {
+static void handle_stop_signal(int signal_number) {
+    (void)signal_number;
+    stop_requested = 1;
+}
+
+int main(int argc, char *argv[]) {
     Config config;
     const int status = read_config(APP_SERVER, argc, argv, &config);
     if (status != 0 || config.help || config.check_config) {
@@ -19,34 +25,30 @@ int main(int argc, char* argv[]) {
         return 1;
     }
     const int port = local_port(listener);
-    if (port == -1) {
+    static PollServer server;
+    if (port == -1 || poll_server_init(&server, listener, poll_default_timeouts()) == -1) {
         close(listener);
         return 1;
     }
+
+    struct sigaction action = {0};
+    action.sa_handler = handle_stop_signal;
+    sigaction(SIGTERM, &action, NULL);
+    sigaction(SIGINT, &action, NULL);
+
     printf("Listening on %s:%d\n", config.host, port);
     fflush(stdout);
 
-    // Nhận một kết nối rồi đóng hai fd như bài 2-Chap2/tcp_server.c.
-    const int client = accept(listener, NULL, NULL);
-    if (client == -1) {
-        perror("accept");
-        close(listener);
-        return 1;
-    }
-    puts("Client connected");
-
-    // Trả lại dữ liệu như bài 2-Chap2/tcp_server.c, sau khi nhận đủ một frame.
-    FrameInput input = {0};
-    int received;
-    while ((received = receive_frame(client, &input)) == 1) {
-        if (send_frame(client, input.reader.body, input.reader.body_size) < 0) {
-            perror("send");
-            received = -1;
+    // Chạy vòng poll() cho nhiều client như bài 4-Chap4/chat_room_server.c.
+    int exit_code = 0;
+    while (!stop_requested) {
+        if (poll_server_step(&server, monotonic_ms(), -1) == -1) {
+            exit_code = 1;
             break;
         }
     }
-    frame_reset(&input.reader);
-    close(client);
+    poll_server_stop(&server);
+    poll_server_destroy(&server);
     close(listener);
-    return received == 0 ? 0 : 1;
+    return exit_code;
 }

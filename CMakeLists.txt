@@ -40,7 +40,10 @@ add_library(place_config STATIC src/config.c)
 target_include_directories(place_config PUBLIC src)
 target_link_libraries(place_config PUBLIC place_build_options)
 
-add_library(place_transport STATIC src/transport/tcp.c src/transport/frame_io.c)
+add_library(place_transport STATIC
+    src/transport/tcp.c
+    src/transport/frame_io.c
+    src/transport/poll_loop.c)
 target_include_directories(place_transport PUBLIC src)
 target_link_libraries(place_transport PUBLIC place_build_options place_frame)
 
@@ -94,4 +97,9 @@ if(BUILD_TESTING)
         "${CMAKE_CURRENT_SOURCE_DIR}/tests/tcp/framing_cases.py" contract
         "$<TARGET_FILE:place_server>")
     set_tests_properties(frame.tcp frame.contract PROPERTIES LABELS w1 TIMEOUT 30)
+
+    add_test(NAME transport.poll COMMAND "${Python3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tests/tcp/poll_cases.py"
+        "$<TARGET_FILE:place_server>")
+    set_tests_properties(transport.poll PROPERTIES LABELS w1 TIMEOUT 30)
 endif()

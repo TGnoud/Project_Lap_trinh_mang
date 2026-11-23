@@ -25,9 +25,10 @@ def running_server(server_path, error=None):
             assert port > 0, line
 
             yield port
+            server.terminate()
             output, errors = server.communicate(timeout=5)
-            assert server.returncode == (0 if error is None else 1), errors
-            assert output.strip() == "Client connected", output
+            assert server.returncode == 0, errors
+            assert "Client connected" in output.splitlines(), output
             if error is not None:
                 assert error in errors, errors
         finally:

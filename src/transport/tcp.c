@@ -1,6 +1,7 @@
 #include "transport/tcp.h"
 
 #include <arpa/inet.h>
+#include <fcntl.h>
 #include <netdb.h>
 #include <sys/socket.h>
 #include <unistd.h>
@@ -45,7 +46,7 @@ int open_listener(const char *host, uint16_t port) {
         close(listener);
         return -1;
     }
-    if (listen(listener, 5) == -1) {
+    if (listen(listener, SOMAXCONN) == -1) {
         perror("listen");
         close(listener);
         return -1;
@@ -81,4 +82,14 @@ int local_port(int fd) {
         return -1;
     }
     return ntohs(address.sin_port);
+}
+
+// Đặt O_NONBLOCK bằng fcntl như bài 4-Chap4/chat_room_server.c.
+int set_nonblocking(int fd) {
+    const int flags = fcntl(fd, F_GETFL, 0);
+    if (flags == -1 || fcntl(fd, F_SETFL, flags | O_NONBLOCK) == -1) {
+        perror("fcntl");
+        return -1;
+    }
+    return 0;
 }
