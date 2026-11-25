@@ -5,12 +5,35 @@
 #include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <poll.h>
 #include <sys/socket.h>
 #include <unistd.h>
 
 // Keep assertions active in both Debug and Release builds.
 #undef NDEBUG
 #include <assert.h>
+
+static bool interrupt_poll;
+static bool timeout_poll;
+
+int __real_poll(struct pollfd *fds, nfds_t count, int milliseconds);
+
+int __wrap_poll(struct pollfd *fds, nfds_t count, int milliseconds) {
+    if (interrupt_poll) {
+        assert(count == 1 && fds[0].events == POLLOUT);
+        assert(milliseconds > 0 && milliseconds <= 5000);
+        interrupt_poll = false;
+        errno = EINTR;
+        return -1;
+    }
+    if (timeout_poll) {
+        assert(count == 1 && fds[0].events == POLLOUT);
+        assert(milliseconds > 0 && milliseconds <= 5000);
+        timeout_poll = false;
+        return 0;
+    }
+    return __real_poll(fds, count, milliseconds);
+}
 
 static int open_fd_count(void) {
     // Đọc thư mục bằng opendir/readdir như bài 3-Chap3/udp_server.c.
@@ -90,11 +113,27 @@ static void test_frame_io_errors(void) {
     frame_reset(&input.reader);
 }
 
+static void test_connect_deadline(void) {
+    assert(set_nonblocking(-1, 1) == -1);
+    const int listener = open_listener("127.0.0.1", 0);
+    assert(listener >= 0);
+    const int port = local_port(listener);
+    assert(port > 0);
+    const int before = open_fd_count();
+    interrupt_poll = true;
+    timeout_poll = true;
+    assert(connect_to_server("127.0.0.1", (uint16_t)port) == -1 && errno == ETIMEDOUT);
+    assert(!interrupt_poll && !timeout_poll);
+    assert(open_fd_count() == before);
+    assert(close(listener) == 0);
+}
+
 int main(void) {
     test_loopback();
     test_invalid_endpoints();
     test_failed_bind();
     test_refused_connection();
     test_frame_io_errors();
+    test_connect_deadline();
     return 0;
 }

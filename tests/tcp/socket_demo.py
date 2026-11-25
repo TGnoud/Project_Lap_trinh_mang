@@ -24,19 +24,21 @@ def running_server(server_path, error=None):
             port = int(line[len(prefix):])
             assert port > 0, line
 
-            yield port
-            output, errors = server.communicate(timeout=5)
-            assert server.returncode == (0 if error is None else 1), errors
-            assert output.strip() == "Client connected", output
+            yield port, server
+            server.terminate()
+            _, errors = server.communicate(timeout=5)
+            assert server.returncode == 0, errors
             if error is not None:
                 assert error in errors, errors
+            else:
+                assert not errors, errors
         finally:
             if server.poll() is None:
                 server.kill()
 
 
 def run_demo(server_path, cli_path):
-    with running_server(server_path) as port:
+    with running_server(server_path) as (port, _):
         client = subprocess.run(
             [cli_path, "--port", str(port)], capture_output=True, text=True, timeout=5
         )

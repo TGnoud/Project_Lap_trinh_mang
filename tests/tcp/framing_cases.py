@@ -30,7 +30,7 @@ def receive(sock):
 def tcp_cases(server_path, cli_path):
     body = '{"x":"café"}'.encode()
     wire = encode(body)
-    with running_server(server_path) as port:
+    with running_server(server_path) as (port, _):
         with socket.create_connection(("127.0.0.1", port), timeout=5) as sock:
             for chunk in (wire[:1], wire[1:3], wire[3:-3], wire[-3:]):
                 sock.sendall(chunk)
@@ -53,7 +53,7 @@ def tcp_cases(server_path, cli_path):
         (encode(b'{"x":"\xc3("}'), "Invalid frame"),
     ]
     for invalid, error in bad_cases:
-        with running_server(server_path, error) as port:
+        with running_server(server_path, error) as (port, _):
             with socket.create_connection(("127.0.0.1", port), timeout=5) as sock:
                 sock.sendall(invalid)
                 sock.shutdown(socket.SHUT_WR)
@@ -86,7 +86,7 @@ def tcp_cases(server_path, cli_path):
 def contract_cases(server_path):
     golden = b'\x00\x00\x00\x07{"x":1}'
     assert encode(b'{"x":1}') == golden
-    with running_server(server_path) as port:
+    with running_server(server_path) as (port, _):
         with socket.create_connection(("127.0.0.1", port), timeout=5) as sock:
             sock.sendall(golden)
             assert read_exact(sock, len(golden)) == golden

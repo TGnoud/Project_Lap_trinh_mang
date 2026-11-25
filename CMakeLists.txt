@@ -40,7 +40,8 @@ add_library(place_config STATIC src/config.c)
 target_include_directories(place_config PUBLIC src)
 target_link_libraries(place_config PUBLIC place_build_options)
 
-add_library(place_transport STATIC src/transport/tcp.c src/transport/frame_io.c)
+add_library(place_transport STATIC src/transport/tcp.c src/transport/frame_io.c
+    src/transport/connection.c src/transport/poll_server.c)
 target_include_directories(place_transport PUBLIC src)
 target_link_libraries(place_transport PUBLIC place_build_options place_frame)
 
@@ -74,8 +75,15 @@ if(BUILD_TESTING)
 
     add_executable(place_transport_test tests/unit/tcp_test.c)
     target_link_libraries(place_transport_test PRIVATE place_transport)
+    target_link_options(place_transport_test PRIVATE -Wl,--wrap=poll)
     add_test(NAME transport.unit COMMAND place_transport_test)
     set_tests_properties(transport.unit PROPERTIES LABELS "w1;unit" TIMEOUT 10)
+
+    add_executable(place_connection_test tests/unit/connection_test.c)
+    target_link_libraries(place_connection_test PRIVATE place_transport)
+    target_link_options(place_connection_test PRIVATE -Wl,--wrap=recv -Wl,--wrap=send)
+    add_test(NAME transport.poll.unit COMMAND place_connection_test)
+    set_tests_properties(transport.poll.unit PROPERTIES LABELS "w1;unit" TIMEOUT 10)
 
     add_test(NAME transport.demo COMMAND "${Python3_EXECUTABLE}"
         "${CMAKE_CURRENT_SOURCE_DIR}/tests/tcp/socket_demo.py"
@@ -94,4 +102,8 @@ if(BUILD_TESTING)
         "${CMAKE_CURRENT_SOURCE_DIR}/tests/tcp/framing_cases.py" contract
         "$<TARGET_FILE:place_server>")
     set_tests_properties(frame.tcp frame.contract PROPERTIES LABELS w1 TIMEOUT 30)
+
+    add_test(NAME transport.poll.tcp COMMAND "${Python3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tests/tcp/poll_cases.py" "$<TARGET_FILE:place_server>")
+    set_tests_properties(transport.poll.tcp PROPERTIES LABELS w1 TIMEOUT 60)
 endif()
