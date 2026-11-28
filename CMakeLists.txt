@@ -31,6 +31,7 @@ elseif(ENABLE_SANITIZERS)
     target_link_options(place_build_options INTERFACE -fsanitize=address,undefined)
 endif()
 
+find_package(Threads REQUIRED)
 find_package(json-c CONFIG REQUIRED)
 add_library(place_frame STATIC src/protocol/frame.c)
 target_include_directories(place_frame PUBLIC src)
@@ -43,9 +44,10 @@ target_link_libraries(place_config PUBLIC place_build_options)
 add_library(place_transport STATIC
     src/transport/tcp.c
     src/transport/frame_io.c
-    src/transport/poll_loop.c)
+    src/transport/poll_loop.c
+    src/transport/worker.c)
 target_include_directories(place_transport PUBLIC src)
-target_link_libraries(place_transport PUBLIC place_build_options place_frame)
+target_link_libraries(place_transport PUBLIC place_build_options place_frame Threads::Threads)
 
 add_executable(place_server src/server/main.c)
 target_link_libraries(place_server PRIVATE place_config place_transport)
@@ -102,4 +104,9 @@ if(BUILD_TESTING)
         "${CMAKE_CURRENT_SOURCE_DIR}/tests/tcp/poll_cases.py"
         "$<TARGET_FILE:place_server>")
     set_tests_properties(transport.poll PROPERTIES LABELS w1 TIMEOUT 30)
+
+    add_executable(place_worker_test tests/unit/worker_test.c)
+    target_link_libraries(place_worker_test PRIVATE place_transport)
+    add_test(NAME worker.unit COMMAND place_worker_test)
+    set_tests_properties(worker.unit PROPERTIES LABELS "w1;unit" TIMEOUT 10)
 endif()

@@ -2,6 +2,7 @@
 #define PLACES_POLL_LOOP_H
 
 #include "protocol/frame.h"
+#include "transport/worker.h"
 
 #include <stdbool.h>
 #include <stddef.h>
@@ -46,6 +47,13 @@ typedef struct {
     int64_t auth_deadline_ms;
 } PollConnection;
 
+typedef enum {
+    POLL_ROUTE_BUSINESS,
+    POLL_ROUTE_AUTH,
+} PollRoute;
+
+typedef PollRoute (*PollRouteFn)(const char *body, size_t body_size);
+
 typedef struct {
     int listener;
     int max_connections;
@@ -54,6 +62,9 @@ typedef struct {
     bool stopping;
     bool defer_requests;
     PollTimeouts timeouts;
+    Worker *business_worker;
+    Worker *auth_worker;
+    PollRouteFn route_request;
     PollConnection connections[POLL_MAX_CONNECTIONS];
     unsigned char io_buffer[POLL_IO_CHUNK_SIZE];
 } PollServer;

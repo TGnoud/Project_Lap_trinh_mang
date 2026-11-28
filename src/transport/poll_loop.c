@@ -131,6 +131,52 @@ static void update_frame_deadline(const PollServer *server, PollConnection *conn
     }
 }
 
+static const char SERVER_BUSY_RESPONSE[] =
+    "{\"v\":1,\"type\":\"response\",\"ok\":false,"
+    "\"error\":{\"code\":\"SERVER_BUSY\",\"message\":\"Server busy\"}}";
+
+static int dispatch_ready_frame(PollServer *server, PollConnection *connection, int64_t now_ms) {
+    if (server->business_worker != NULL || server->auth_worker != NULL) {
+        const PollRoute route = server->route_request != NULL
+                                    ? server->route_request(connection->reader.body,
+                                                            connection->reader.body_size)
+                                    : POLL_ROUTE_BUSINESS;
+        Worker *target = route == POLL_ROUTE_AUTH ? server->auth_worker : server->business_worker;
+        if (target != NULL &&
+            worker_submit(target, connection->connection_id, connection->reader.body,
+                          connection->reader.body_size)) {
+            frame_reset(&connection->reader);
+            connection->request_active = true;
+            if (route == POLL_ROUTE_AUTH) {
+                connection->auth_job_active = true;
+                connection->auth_deadline_ms = now_ms + WORKER_AUTH_BUDGET_MS;
+            }
+            return 1;
+        }
+        frame_reset(&connection->reader);
+        if (!poll_connection_queue_frame(connection, SERVER_BUSY_RESPONSE,
+                                         sizeof(SERVER_BUSY_RESPONSE) - 1, now_ms,
+                                         server->timeouts.tx_timeout_ms)) {
+            fputs("TX buffer limit exceeded\n", stderr);
+            return -1;
+        }
+        return 0;
+    }
+
+    if (server->defer_requests) {
+        connection->request_active = true;
+        return 1;
+    }
+    if (!poll_connection_queue_frame(connection, connection->reader.body,
+                                     connection->reader.body_size, now_ms,
+                                     server->timeouts.tx_timeout_ms)) {
+        fputs("TX buffer limit exceeded\n", stderr);
+        return -1;
+    }
+    frame_reset(&connection->reader);
+    return 0;
+}
+
 static int process_rx_buffer(PollServer *server, PollConnection *connection, int64_t now_ms) {
     while (!connection->request_active && !poll_connection_backpressured(connection) &&
            connection->rx_offset < connection->rx_size) {
@@ -152,17 +198,13 @@ static int process_rx_buffer(PollServer *server, PollConnection *connection, int
         }
 
         connection->frame_deadline_ms = 0;
-        if (server->defer_requests) {
-            connection->request_active = true;
-            break;
-        }
-        if (!poll_connection_queue_frame(connection, connection->reader.body,
-                                         connection->reader.body_size, now_ms,
-                                         server->timeouts.tx_timeout_ms)) {
-            fputs("TX buffer limit exceeded\n", stderr);
+        const int dispatched = dispatch_ready_frame(server, connection, now_ms);
+        if (dispatched < 0) {
             return -1;
         }
-        frame_reset(&connection->reader);
+        if (dispatched > 0) {
+            break;
+        }
     }
 
     update_frame_deadline(server, connection, now_ms);
@@ -183,6 +225,7 @@ bool poll_server_complete_request(PollServer *server, uint64_t connection_id,
         }
         frame_reset(&connection->reader);
         connection->request_active = false;
+        connection->auth_job_active = false;
         if (!poll_connection_queue_frame(connection, body, body_size, now_ms,
                                          server->timeouts.tx_timeout_ms)) {
             fputs("TX buffer limit exceeded\n", stderr);
@@ -335,22 +378,41 @@ static bool connection_expired(const PollConnection *connection, int64_t now_ms)
         fputs("TX timeout\n", stderr);
         return true;
     }
-    if (!connection->authenticated && !connection->auth_job_active &&
-        connection->auth_deadline_ms > 0 && now_ms >= connection->auth_deadline_ms) {
+    if (!connection->authenticated && connection->auth_deadline_ms > 0 &&
+        now_ms >= connection->auth_deadline_ms) {
         fputs("Auth timeout\n", stderr);
         return true;
     }
     return false;
 }
 
-// Vòng poll() theo dõi POLLIN/POLLOUT như bài 4-Chap4/chat_room_server.c.
+static void drain_worker_results(PollServer *server, Worker *worker, int64_t now_ms) {
+    worker_drain_notify(worker);
+    WorkerMessage result;
+    while (worker_take_result(worker, &result)) {
+        poll_server_complete_request(server, result.connection_id, result.body,
+                                     result.body_size, now_ms);
+        free(result.body);
+    }
+}
+
+// Vòng poll() theo dõi listener, pipe worker và socket client như bài 4-Chap4/chat_room_server.c.
 int poll_server_step(PollServer *server, int64_t now_ms, int max_wait_ms) {
-    struct pollfd poll_fds[POLL_MAX_CONNECTIONS + 1];
+    struct pollfd poll_fds[POLL_MAX_CONNECTIONS + 3];
     const int ready_count = server->num_connections;
 
-    poll_fds[0].fd = server->stopping ? -1 : server->listener;
-    poll_fds[0].events = POLLIN;
-    poll_fds[0].revents = 0;
+    poll_fds[0] = (struct pollfd){
+        .fd = server->stopping ? -1 : server->listener,
+        .events = POLLIN,
+    };
+    poll_fds[1] = (struct pollfd){
+        .fd = server->business_worker != NULL ? worker_notify_fd(server->business_worker) : -1,
+        .events = POLLIN,
+    };
+    poll_fds[2] = (struct pollfd){
+        .fd = server->auth_worker != NULL ? worker_notify_fd(server->auth_worker) : -1,
+        .events = POLLIN,
+    };
 
     for (int i = 0; i < ready_count; ++i) {
         const PollConnection *connection = &server->connections[i];
@@ -361,13 +423,11 @@ int poll_server_step(PollServer *server, int64_t now_ms, int max_wait_ms) {
         if (connection->tx_offset < connection->tx_size) {
             events |= POLLOUT;
         }
-        poll_fds[i + 1].fd = connection->fd;
-        poll_fds[i + 1].events = events;
-        poll_fds[i + 1].revents = 0;
+        poll_fds[i + 3] = (struct pollfd){.fd = connection->fd, .events = events};
     }
 
     const int timeout_ms = compute_poll_timeout(server, now_ms, max_wait_ms);
-    if (poll(poll_fds, (nfds_t)(ready_count + 1), timeout_ms) == -1) {
+    if (poll(poll_fds, (nfds_t)(ready_count + 3), timeout_ms) == -1) {
         if (errno == EINTR) {
             return 0;
         }
@@ -384,7 +444,7 @@ int poll_server_step(PollServer *server, int64_t now_ms, int max_wait_ms) {
 
     for (int i = ready_count - 1; i >= 0; --i) {
         PollConnection *connection = &server->connections[i];
-        const short revents = poll_fds[i + 1].revents;
+        const short revents = poll_fds[i + 3].revents;
         bool should_close = (revents & (POLLERR | POLLNVAL)) != 0 ||
                             connection_expired(connection, now_ms);
 
@@ -405,6 +465,13 @@ int poll_server_step(PollServer *server, int64_t now_ms, int max_wait_ms) {
         if (should_close) {
             close_connection(server, i);
         }
+    }
+
+    if (poll_fds[1].revents & POLLIN) {
+        drain_worker_results(server, server->business_worker, now_ms);
+    }
+    if (poll_fds[2].revents & POLLIN) {
+        drain_worker_results(server, server->auth_worker, now_ms);
     }
     return 0;
 }

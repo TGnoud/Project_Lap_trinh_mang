@@ -4,7 +4,7 @@ Cập nhật ngày 23/11/2026. Kế hoạch 4 tuần dành cho CLI client và se
 
 ## 1. Phạm vi và tài liệu đã đọc
 
-Repo có tài liệu môn học và code mẫu C. Đã đọc **71 tệp .c/.h** trong `1-Chap1` đến `4-Chap4` (24/11/25/11 tệp), kể cả ví dụ trong `temp/`, cùng hai Makefile bài lab. D01 có CMake, cấu hình và unit test C. D02 có server và client TCP nhận một kết nối rồi đóng. D03 bổ sung frame JSON UTF-8 và demo echo trên kết nối đó. D04 chuyển server sang vòng `poll()` non-blocking cho nhiều kết nối với bộ đệm RX/TX, backpressure và deadline. [PROGRESS.md](PROGRESS.md) ghi các lần kiểm trên WSL. Worker, chức năng nghiệp vụ, migration và bài đo tải còn phải triển khai.
+Repo có tài liệu môn học và code mẫu C. Đã đọc **71 tệp .c/.h** trong `1-Chap1` đến `4-Chap4` (24/11/25/11 tệp), kể cả ví dụ trong `temp/`, cùng hai Makefile bài lab. D01 có CMake, cấu hình và unit test C. D02 có server và client TCP nhận một kết nối rồi đóng. D03 bổ sung frame JSON UTF-8 và demo echo trên kết nối đó. D04 chuyển server sang vòng `poll()` non-blocking cho nhiều kết nối với bộ đệm RX/TX, backpressure và deadline. D05 tách xử lý sang worker hữu hạn (256 nghiệp vụ, 128 xác thực) và báo hoàn tất về vòng `poll()` qua pipe non-blocking kèm `connection_id`. [PROGRESS.md](PROGRESS.md) ghi các lần kiểm trên WSL. SQLite/migration, dispatcher `PING`, chức năng nghiệp vụ và bài đo tải còn phải triển khai.
 
 | Kiến thức | Giáo trình, theo số trang in | Code mẫu và ứng dụng |
 |---|---|---|
@@ -193,7 +193,7 @@ gcovr -r . "build/coverage-$RUN_ID" --filter 'src/' --no-markers --txt --print-s
 python3 scripts/check_coverage_inventory.py "build/coverage-$RUN_ID/coverage.json"
 ```
 
-Dùng GCC/gcov cùng version. ASan/UBSan là tùy chọn khi cần tìm lỗi bộ nhớ. Kết quả đến D04 gồm cấu hình, socket, framing và vòng `poll()` nhiều kết nối. Coverage của toàn bộ chức năng và benchmark sẽ được đo sau khi triển khai.
+Dùng GCC/gcov cùng version. ASan/UBSan là tùy chọn khi cần tìm lỗi bộ nhớ. Kết quả đến D05 gồm cấu hình, socket, framing, vòng `poll()` nhiều kết nối và worker hữu hạn qua pipe. Coverage của toàn bộ chức năng và benchmark sẽ được đo sau khi triển khai.
 
 ## 7. Đo tải TCP thật
 

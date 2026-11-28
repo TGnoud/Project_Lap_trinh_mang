@@ -1,6 +1,7 @@
 #include "config.h"
 #include "transport/poll_loop.h"
 #include "transport/tcp.h"
+#include "transport/worker.h"
 
 #include <signal.h>
 #include <stdio.h>
@@ -26,10 +27,18 @@ int main(int argc, char *argv[]) {
     }
     const int port = local_port(listener);
     static PollServer server;
-    if (port == -1 || poll_server_init(&server, listener, poll_default_timeouts()) == -1) {
+    Worker business_worker = {0};
+    Worker auth_worker = {0};
+    if (port == -1 || poll_server_init(&server, listener, poll_default_timeouts()) == -1 ||
+        worker_init(&business_worker, WORKER_BUSINESS_QUEUE_SIZE, worker_echo_handler, NULL) == -1 ||
+        worker_init(&auth_worker, WORKER_AUTH_QUEUE_SIZE, worker_echo_handler, NULL) == -1) {
+        worker_destroy(&auth_worker);
+        worker_destroy(&business_worker);
         close(listener);
         return 1;
     }
+    server.business_worker = &business_worker;
+    server.auth_worker = &auth_worker;
 
     struct sigaction action = {0};
     action.sa_handler = handle_stop_signal;
@@ -39,7 +48,7 @@ int main(int argc, char *argv[]) {
     printf("Listening on %s:%d\n", config.host, port);
     fflush(stdout);
 
-    // Chạy vòng poll() cho nhiều client như bài 4-Chap4/chat_room_server.c.
+    // Chạy vòng poll() nối với worker hữu hạn qua pipe non-blocking.
     int exit_code = 0;
     while (!stop_requested) {
         if (poll_server_step(&server, monotonic_ms(), -1) == -1) {
@@ -48,6 +57,8 @@ int main(int argc, char *argv[]) {
         }
     }
     poll_server_stop(&server);
+    worker_destroy(&auth_worker);
+    worker_destroy(&business_worker);
     poll_server_destroy(&server);
     close(listener);
     return exit_code;

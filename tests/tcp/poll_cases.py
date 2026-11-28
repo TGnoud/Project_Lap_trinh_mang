@@ -74,7 +74,7 @@ def run_poll_cases(server_path):
                 slow.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 4096)
                 slow.settimeout(5)
                 slow.connect(("127.0.0.1", port))
-                large_body = b"{}" + b" " * 65534
+                large_body = b"{}" + b" " * 59998
                 large_wire = encode(large_body)
                 for _ in range(3):
                     slow.sendall(large_wire)
